@@ -68,14 +68,6 @@ namespace CsClient
                 this.y = y;
                 this.energy = energy;
             }
-
-            /**
-            * Sprawdza czy odwiedziliśmy już ten punkt.
-            */
-            public bool IsVisited(List<Point> cs)
-            {
-                return cs.Contains(this);
-            }
         }
 
         /**
@@ -142,6 +134,14 @@ namespace CsClient
         public void SetEnergy(int energy)
         {
             this.energy = energy;
+        }
+
+        /**
+        * Sprawdza czy odwiedziliśmy już ten punkt.
+        */
+        private bool PointIsVisited(Point p)
+        {
+            return CoordinateSystem.Contains(p);
         }
 
         /**
@@ -237,21 +237,12 @@ namespace CsClient
 
             // Pole widziane w danym momencie.
             OrientedField field = new OrientedField();
+            OrientedField[] fields = new OrientedField[4];
             field.energy = 0;
             field.height = -12345679;
-
-            OrientedField f = GetFirstSeenField();
-            if (f != null)
-            {
-                field = f;
-            }
-            bestPoint = GetDestinationPoint();
-            bestField = field;
-
-            RotateLeft();
-            System.Threading.Thread.Sleep(500);
-            field = GetFirstSeenField();
-            if (((bestField.energy == 0 && field.height < bestField.height) || (field.energy > bestField.energy && bestField.energy > 0) || field.energy < 0 || bestPoint.IsVisited(CoordinateSystem)))
+            
+            fields[0] = field = GetFirstSeenField();
+            if (field != null)
             {
                 bestPoint = GetDestinationPoint();
                 bestField = field;
@@ -259,8 +250,8 @@ namespace CsClient
 
             RotateLeft();
             System.Threading.Thread.Sleep(500);
-            field = GetFirstSeenField();
-            if (field != null && ((bestField.energy == 0 && field.height < bestField.height) || (field.energy > bestField.energy && bestField.energy > 0) || field.energy < 0 || bestPoint.IsVisited(CoordinateSystem)))
+            fields[1] = field = GetFirstSeenField();
+            if (CompareFields(bestField, field) || PointIsVisited(bestPoint))
             {
                 bestPoint = GetDestinationPoint();
                 bestField = field;
@@ -268,11 +259,32 @@ namespace CsClient
 
             RotateLeft();
             System.Threading.Thread.Sleep(500);
-            field = GetFirstSeenField();
-            if (field != null && ((bestField.energy == 0 && field.height < bestField.height) || (field.energy > bestField.energy && bestField.energy > 0) || field.energy < 0 || bestPoint.IsVisited(CoordinateSystem)))
+            fields[2] = field = GetFirstSeenField();
+            if (CompareFields(bestField, field) || PointIsVisited(bestPoint))
             {
                 bestPoint = GetDestinationPoint();
                 bestField = field;
+            }
+
+            RotateLeft();
+            System.Threading.Thread.Sleep(500);
+            fields[3] = field = GetFirstSeenField();
+            if (CompareFields(bestField, field) || PointIsVisited(bestPoint))
+            {
+                bestPoint = GetDestinationPoint();
+                bestField = field;
+            }
+
+            if (bestField.height == 123456789)
+            {
+                foreach (OrientedField f in fields)
+                {
+                    if (f != null)
+                    {
+                        bestField = f;
+                        break;
+                    }
+                }
             }
 
             // Obraca agenta dopóki nie znajdziemy się w odpowiednim położeniu.
@@ -284,6 +296,23 @@ namespace CsClient
 
             // Przejdź na najlepsze pole.
             StepForward(bestField);
+        }
+
+        /**
+         * Zwraca true jeżeli warto zmienić stare pole na nowe pole.
+         */
+        public bool CompareFields(OrientedField oldfield, OrientedField newfield)
+        {
+            if (oldfield == null)
+            {
+                return true;
+            }
+            else if (newfield == null)
+            {
+                return false;
+            }
+
+            return ((getMovementCost(newfield.height) + newfield.energy) > (getMovementCost(oldfield.height) + oldfield.energy) || oldfield.energy < 0 || newfield.energy < 0);
         }
 
         public void Listen(String a, String s)
@@ -336,6 +365,9 @@ namespace CsClient
 
             // Ustawia nowy punkt układu współrzędnych, w którym znajduje się teraz agent.
             CurrentPoint = GetDestinationPoint();
+
+            // Dodajemy do naszej mapki
+            CoordinateSystem.Add(CurrentPoint);
 
             Console.WriteLine("Roznica wysokosci:  " + poleDocelowe.height);
             Console.WriteLine("Koszt:  " + koszt);
