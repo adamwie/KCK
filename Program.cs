@@ -1,71 +1,128 @@
-﻿using System;
+using System;
 using Data.Realm;
 using Data;
+using System.Collections.Generic;
 
 namespace CsClient
 {
-    /*
     public class Program
     {
-        static AgentAPI agentTomek;
-        static int energy;
-        static WorldParameters cennikSwiata;
-
-        static void Listen(String a, String s) {
-            if(a == "superktos") Console.WriteLine("~Słysze własne słowa~");
-             Console.WriteLine(a + " krzyczy " + s);
+        static void Listen(String a, String s)
+        {
+            if (a == "superktos") Console.WriteLine("~Słysze własne słowa~");
+            Console.WriteLine(a + " krzyczy " + s);
         }
-        
+
         static void Main(string[] args)
+        {
+            try
+            {
+                // Tworzymy instancję naszego agenta
+                Sasha agent = new Sasha(Listen);
+
+                // Dane do świata
+                String ip = "atlantyda.vm.wmi.amu.edu.pl";
+                String groupname = "VGrupa1";
+                String grouppass = "enkhey";
+                String worldname = "VGrupa1";
+                String imie = "Sasha";
+
+                // Próbujemy się połączyć z serwerem
+                agent.worldParameters = agent.Connect(ip, 6008, groupname, grouppass, worldname, imie);
+
+                // Inicjalizacja energii
+                agent.SetEnergy(agent.worldParameters.initialEnergy);
+
+                // Działanie agenta
+                agent.Launch();
+
+                // Kończymy
+                agent.Disconnect();
+            }
+            catch
+            {
+                Console.WriteLine("Wystapily jakies bledy przy podlaczaniu do swiata! :(");
+            }
+
+            Console.ReadKey();
+        }
+    }
+    
+    class Sasha : AgentAPI
+    {
+        private int energy;
+        public WorldParameters worldParameters;
+
+        /**
+        * Odpowiada za punkt w układzie współrzędnych
+        */
+        private struct Point {
+            public int x;
+            public int y;
+            public int energy = 0;
+            public bool obstacle = false;
+
+            public Point(int x, int y, int energy = 0, bool obstacle = false)
+            {
+                this.x = x;
+                this.y = y;
+                this.energy = energy;
+                this.obstacle = obstacle;
+            }
+         
+            /**
+            * Sprawdza czy odwiedziliśmy już ten punkt.
+            */
+            public bool IsVisited(List<Point> cs)
+            {
+                return cs.Contains(this);
+            }
+        }
+
+        /**
+        * Zawiera punkty układu współrzędnych, na których był już agent.
+        */
+        private List<Point> CoordinateSystem = new List<Point>();
+
+        /**
+        * Punkt układu współrzędnych, na którym znajduje się agent.
+        */
+        private Point CurrentPoint = new Point(0,0);
+
+        /**
+        * Kierunek agenta w stosunku do kierunku początkowego, który wyznacza Północ.
+        * Kierunki są powiązane z poruszaniem się po układzie współrzędnych.
+        */
+        enum Direction
+        {
+            North,
+            South,
+            West,
+            East
+        }
+
+        /**
+        * Kierunek agenta na układzie współrzędnych.
+        */
+        private Direction Dir = Direction.North;
+
+        /**
+        * Konstruktor klasy.
+        */
+        public Sasha(MessageHandler handler) : base(handler) { }
+
+        /**
+         * Logika działania agenta.
+         */
+        public void Launch()
         {
             while (true)
             {
-                    agentTomek = new AgentAPI(Listen);
-
-                String ip = Settings.serverIP;
-                String groupname = Settings.groupname;
-                String grouppass = Settings.grouppass;
-
-                if (ip == null)
-                {
-                    Console.Write("Podaj IP serwera: ");
-                    ip = Console.ReadLine();
-                }
-                if (groupname == null)
-                {
-                    Console.Write("Podaj nazwe druzyny: ");
-                    groupname = Console.ReadLine();
-                }
-                if (grouppass == null)
-                {
-                    Console.Write("Podaj haslo: ");
-                    grouppass = Console.ReadLine();
-                }
-
-                Console.Write("Podaj nazwe swiata: ");
-                String worldname = Console.ReadLine();
-                    
-                Console.Write("Podaj imie: ");    
-                String imie = Console.ReadLine();
-
-           
-            
                 try
-                {   
-                    cennikSwiata = agentTomek.Connect(ip, 6008, groupname, grouppass, worldname, imie);
-                    Console.WriteLine(cennikSwiata.initialEnergy + " - Maksymalna energia");
-                    Console.WriteLine(cennikSwiata.maxRecharge + " - Maksymalne doładowanie");
-                    Console.WriteLine(cennikSwiata.sightScope + " - Zasięg widzenia");
-                    Console.WriteLine(cennikSwiata.hearScope + " - Zasięg słyszenia");
-                    Console.WriteLine(cennikSwiata.moveCost + " - Koszt chodzenia");
-                    Console.WriteLine(cennikSwiata.rotateCost + " - Koszt obrotu");
-                    Console.WriteLine(cennikSwiata.speakCost + " - Koszt mówienia");
-
-                    energy = cennikSwiata.initialEnergy;
-                    KeyReader();
-                    agentTomek.Disconnect();
+                {
+                    Console.WriteLine("Yo! Jestem w swiece!");
+                    DoBestMovement();
                     Console.ReadKey();
-                    break;
                 }
                 catch (NonCriticalException ex)
                 {
@@ -80,152 +137,210 @@ namespace CsClient
                 }
             }
         }
-        
-        static void KeyReader() {
-            bool loop = true;
-            while(loop) {
-                Console.WriteLine("Moja energia: " + energy);
-                switch(Console.ReadKey().Key) {
-                    case ConsoleKey.Spacebar: Look();
-                        break;
-                    case ConsoleKey.R: Recharge();
-                        break;
-                    case ConsoleKey.UpArrow: StepForward();
-                        break;
-                    case ConsoleKey.LeftArrow: RotateLeft();
-                        break;
-                    case ConsoleKey.RightArrow: RotateRight();
-                        break;
-                    case ConsoleKey.Enter: Speak();
-                        break;
-                    case ConsoleKey.Q: loop = false;
-                        break;
-                    case ConsoleKey.D: agentTomek.Disconnect();
-                        break;
-                    default: Console.Beep();
-                        break;
-                }
-            }
+
+        /**
+        * Ustawia energię agenta.
+        */
+        public void SetEnergy(int energy)
+        {
+            this.energy = energy;
         }
 
-        private static void Recharge()
+        /**
+        * Ustawia odpowiedni kierunek w układzie współrzędnych po wykonaniu rotacji.
+        */        
+        private void SetDirection(Direction RotationDir)
         {
-            int added = agentTomek.Recharge();
-            energy += added;
-            Console.WriteLine("Otrzymano " + added + " energii");
-        }
-
-        private static void Speak()
-        {
-            if (!agentTomek.Speak(Console.ReadLine(), 1))
-                Console.WriteLine("Mowienie nie powiodlo sie - brak energii");
-            else
-                energy -= cennikSwiata.speakCost;
-        }
-
-        private static void RotateLeft()
-        {
-            if (!agentTomek.RotateLeft())
-                Console.WriteLine("Obrot nie powiodl sie - brak energii");
-            else
-                energy -= cennikSwiata.rotateCost;
-        }
-
-        private static void RotateRight()
-        {
-            if (!agentTomek.RotateRight())
-                Console.WriteLine("Obrot nie powiodl sie - brak energii");
-            else
-                energy -= cennikSwiata.rotateCost;
-        }
-
-        private static void StepForward()
-        {
-            if (!agentTomek.StepForward())
-                Console.WriteLine("Wykonanie kroku nie powiodlo sie");
-            if (energy >= cennikSwiata.moveCost)
-                energy -= cennikSwiata.moveCost;
-        }
-
-        private static void Look()
-        {
-            OrientedField[] pola = agentTomek.Look();
-            foreach (OrientedField pole in pola)
+            switch (Dir)
             {
-                Console.WriteLine("-----------------------------");
-                Console.WriteLine("POLE " + pole.x + "," + pole.y);
-                Console.WriteLine("Wysokosc: " + pole.height);
-                if (pole.energy != 0)
-                    Console.WriteLine("Energia: " + pole.energy);
-                if (pole.obstacle)
-                    Console.WriteLine("Przeszkoda");
-                if (pole.agent != null)
-                    Console.WriteLine("Agent " + pole.agent.fullName + " i jest obrocony na " + pole.agent.direction.ToString());
-                Console.WriteLine("-----------------------------");
+                case Direction.North:
+                    if (RotationDir == Direction.West)
+                    {
+                        Dir = Direction.West;
+                    }
+                    else if (RotationDir == Direction.East)
+                    {
+                        Dir = Direction.East;
+                    }
+                    break;
+                case Direction.South:
+                    if (RotationDir == Direction.West)
+                    {
+                        Dir = Direction.East;
+                    }
+                    else if (RotationDir == Direction.East)
+                    {
+                        Dir = Direction.West;
+                    }
+                    break;
+                case Direction.West:
+                    if (RotationDir == Direction.West)
+                    {
+                        Dir = Direction.South;
+                    }
+                    else if (RotationDir == Direction.East)
+                    {
+                        Dir = Direction.North;
+                    }
+                    break;
+                case Direction.East:
+                    if (RotationDir == Direction.West)
+                    {
+                        Dir = Direction.North;
+                    }
+                    else if (RotationDir == Direction.East)
+                    {
+                        Dir = Direction.South;
+                    }
+                    break;
             }
         }
         
-    }
-    */
-    public class AgentVGRupa1
-    {
-        static AgentAPI agent;
-        static int energy;
-        static WorldParameters worldParameters;
-
-        static OrientedField aktualnePole;
-
-        enum Direction
+        /**
+        * Oblicza punkt układu współrzędnych w jakim się znajdziemy po wykonaniu kroku.
+        */
+        private Point GetDestinationPoint()
         {
-            Up,
-            Down,
-            Left,
-            Right
+            switch (Dir)
+            {
+                case Direction.North:
+                    return new Point(CurrentPoint.x, CurrentPoint.y + 1);
+
+                case Direction.South:
+                    return new Point(CurrentPoint.x, CurrentPoint.y - 1);
+
+                case Direction.West:
+                    return new Point(CurrentPoint.x - 1, CurrentPoint.y);
+
+                case Direction.East:
+                    return new Point(CurrentPoint.x + 1, CurrentPoint.y);
+
+                default:
+                    return new Point(0, 0);
+            }
         }
 
-        static Direction direction = Direction.Up;
+        /**
+         * Metoda sprawia, że agent obraca się wokół siebie i sprawdza, które z 4 pól, na które może przejść
+         * jest najlepsze pod względem stracenia energii.
+         * Po znalezieniu najlepszego pola, przechodzi na nie.
+         * Jeżeli znalezione pole to punkt, w którym agent już był, to szukamy drugiego pola. 
+         * Jeżeli wszystkie odwiedzono to wybieramy najlepsze z nich.
+         */
+        private void DoBestMovement()
+        {
+            // Najlepszy punkt na układzie współrzędnych.
+            Point bestPoint = new Point(0, 0, -1234567890, true);
 
-        static void Listen(String a, String s)
+            // Dane najlepszego pola wg. Atlantydy
+            OrientedField bestField = new OrientedField();
+            bestField.height = 1234567890;
+
+            // Pole widziane w danym momencie.
+            OrientedField field;
+            
+            field = GetFirstSeenField();
+            if (field.energy > bestPoint.energy && field.height < bestField.height)
+            {
+                bestPoint = new Point(field.x, field.y, field.energy, field.obstacle);
+                bestField = field;
+            }
+
+            RotateLeft();
+            field = GetFirstSeenField();
+            if ((field.energy > bestPoint.energy && field.height < bestField.height) || bestPoint.IsVisited(CoordinateSystem))
+            {
+                bestPoint = new Point(field.x, field.y, field.energy, field.obstacle);
+                bestField = field;
+            }
+
+            RotateLeft();
+            field = GetFirstSeenField();
+            if ((field.energy > bestPoint.energy && field.height < bestField.height) || bestPoint.IsVisited(CoordinateSystem))
+            {
+                bestPoint = new Point(field.x, field.y, field.energy, field.obstacle);
+                bestField = field;
+            }
+
+            RotateLeft();
+            field = GetFirstSeenField();
+            if ((field.energy > bestPoint.energy && field.height < bestField.height) || bestPoint.IsVisited(CoordinateSystem))
+            {
+                bestPoint = new Point(field.x, field.y, field.energy, field.obstacle);
+                bestField = field;
+            }
+
+            // Obraca agenta dopóki nie znajdziemy się w odpowiednim położeniu.
+            while (GetDestinationPoint().x != bestPoint.x && GetDestinationPoint().y != bestPoint.y)
+            {
+                RotateLeft();
+            }
+
+            // Przejdź na najlepsze pole.
+            StepForward(bestField);
+        }
+
+        public void Listen(String a, String s)
         {
             if (a == "superktos") Console.WriteLine("~Słysze własne słowa~");
             Console.WriteLine(a + " krzyczy " + s);
         }
 
-        private static void RotateLeft()
+        new public void RotateLeft()
         {
-            if (!agent.RotateLeft())
+            if (!base.RotateLeft())
+            {
                 Console.WriteLine("Obrot nie powiodl sie - brak energii");
-            else
-                energy -= worldParameters.rotateCost;
+                return;
+            }
+            energy -= worldParameters.rotateCost;
+            SetDirection(Direction.West);
         }
 
-        private static void RotateRight()
+        new public void RotateRight()
         {
-            if (!agent.RotateRight())
+            if (!base.RotateRight())
+            {
                 Console.WriteLine("Obrot nie powiodl sie - brak energii");
-            else
-                energy -= worldParameters.rotateCost;
+                return;
+            }
+
+            energy -= worldParameters.rotateCost;
+            SetDirection(Direction.East);
         }
 
-        private static void StepForward(OrientedField poleDocelowe)
+        public void StepForward(OrientedField poleDocelowe)
         {
-            if (!agent.StepForward())
+            if (!base.StepForward())
+            {
                 Console.WriteLine("Wykonanie kroku nie powiodlo sie");
-           /*
-            if (energy >= worldParameters.moveCost)
-                energy -= worldParameters.moveCost;
-            */
-            int koszt = Convert.ToInt32(Math.Ceiling(Convert.ToDouble(worldParameters.moveCost * poleDocelowe.height) / 100));
+                return;
+            }
+
+            int koszt = getMovementCost(poleDocelowe.height);
             if (energy >= koszt)
+            {
                 energy -= koszt;
-            
+            }
+
+            // Ustawia nowy punkt układu współrzędnych, w którym znajduje się teraz agent.
+            CurrentPoint = GetDestinationPoint();
+         
             Console.WriteLine("Roznica wysokosci:  " + poleDocelowe.height);
             Console.WriteLine("Koszt:  " + koszt);
         }
 
-        private static OrientedField GetFirstSeenField()
+        /**
+         * Oblicza i zwraca koszt wykonania przejścia.
+         */
+        private int getMovementCost(int height)
         {
-            OrientedField[] widzianePola = agent.Look();
+            return Convert.ToInt32(Math.Ceiling(Convert.ToDouble(worldParameters.moveCost * height) / 100));
+        }
+
+        public OrientedField GetFirstSeenField()
+        {
+            OrientedField[] widzianePola = base.Look();
             foreach (OrientedField pole in widzianePola)
             {
                 if (pole.x == 0 && pole.y == 1 && pole.obstacle == false)
@@ -236,7 +351,7 @@ namespace CsClient
             return null;
         }
 
-        private static bool FirstStep()
+        public bool FirstStep()
         {
             OrientedField firstSeenField = GetFirstSeenField();
 
@@ -263,15 +378,15 @@ namespace CsClient
         }
 
         /*
-        private static void GoUp()
+        public void GoUp()
         {
-            if (direction == Direction.Up)
+            if (Dir == Direction.Up)
                 StepForward();
             else
             {
-                if (direction == Direction.Left)
+                if (Dir == Direction.Left)
                     RotateRight();
-                else if (direction == Direction.Right)
+                else if (Dir == Direction.Right)
                     RotateLeft();
                 else
                 {
@@ -281,22 +396,22 @@ namespace CsClient
                 StepForward();
             }
         }
-         * */
+        * */
 
-        private static void GoDown()
+        public void GoDown()
         {
         }
 
 
-        private static void init()
+        public void init()
         {
-            OrientedField[] widzianePola = agent.Look();
+            OrientedField[] widzianePola = base.Look();
 
             foreach (OrientedField pole in widzianePola)
             {
                 if (pole.energy != 0)
                 {
-                    
+                 
 
                 }
                 else
@@ -304,70 +419,5 @@ namespace CsClient
                 }
             }
         }
-
-
-
-        private static void Connect()
-        {
-            try
-            {
-                agent = new AgentAPI(Listen);
-
-                String ip = "atlantyda.vm.wmi.amu.edu.pl";
-                String groupname = "VGrupa1";
-                String grouppass = "enkhey";
-
-                String worldname = "VGrupa1";
-                String imie = "Sasha";
-
-                worldParameters = agent.Connect(ip, 6008, groupname, grouppass, worldname, imie);
-                energy = worldParameters.initialEnergy;
-
-            }
-            catch
-            {
-                Console.WriteLine("Wystapily jakies bledy przy podlaczaniu do swiata! :(");
-            }
-        }
-
-
-        private static void Work()
-        {
-            //TU logika agenta
-            while (true)
-            {
-                try
-                {
-                    Console.WriteLine("Yo! Jestem w swiece!");
-                    FirstStep();
-                    Console.ReadKey();
-                }
-                catch (NonCriticalException ex)
-                {
-                    Console.WriteLine(ex.Message);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine(ex.Message);
-                    Console.WriteLine(ex.StackTrace);
-                    Console.ReadKey();
-                    break;
-                }
-            }
-        }
-
-        private static void Disconnect()
-        {
-            agent.Disconnect();
-            Console.ReadKey();
-        }
-
-
-        static void Main(string[] args)
-        {
-            Connect();
-            Work();
-            Disconnect();
-        }
-    }
+    }    
 }
