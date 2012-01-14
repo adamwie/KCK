@@ -60,14 +60,12 @@ namespace CsClient
             public int x;
             public int y;
             public int energy = 0;
-            public bool obstacle = false;
 
-            public Point(int x, int y, int energy = 0, bool obstacle = false)
+            public Point(int x, int y, int energy = 0)
             {
                 this.x = x;
                 this.y = y;
                 this.energy = energy;
-                this.obstacle = obstacle;
             }
          
             /**
@@ -240,33 +238,33 @@ namespace CsClient
             OrientedField field;
             
             field = GetFirstSeenField();
-            if (field.energy > bestPoint.energy && field.height < bestField.height)
+            if (field.energy > bestField.energy && field.height < bestField.height)
             {
-                bestPoint = new Point(field.x, field.y, field.energy, field.obstacle);
+                bestPoint = GetDestinationPoint();
                 bestField = field;
             }
 
             RotateLeft();
             field = GetFirstSeenField();
-            if ((field.energy > bestPoint.energy && field.height < bestField.height) || bestPoint.IsVisited(CoordinateSystem))
+            if ((field.energy > bestField.energy && field.height < bestField.height) || bestPoint.IsVisited(CoordinateSystem))
             {
-                bestPoint = new Point(field.x, field.y, field.energy, field.obstacle);
+                bestPoint = GetDestinationPoint();
                 bestField = field;
             }
 
             RotateLeft();
             field = GetFirstSeenField();
-            if ((field.energy > bestPoint.energy && field.height < bestField.height) || bestPoint.IsVisited(CoordinateSystem))
+            if ((field.energy > bestField.energy && field.height < bestField.height) || bestPoint.IsVisited(CoordinateSystem))
             {
-                bestPoint = new Point(field.x, field.y, field.energy, field.obstacle);
+                bestPoint = GetDestinationPoint();
                 bestField = field;
             }
 
             RotateLeft();
             field = GetFirstSeenField();
-            if ((field.energy > bestPoint.energy && field.height < bestField.height) || bestPoint.IsVisited(CoordinateSystem))
+            if ((field.energy > bestField.energy && field.height < bestField.height) || bestPoint.IsVisited(CoordinateSystem))
             {
-                bestPoint = new Point(field.x, field.y, field.energy, field.obstacle);
+                bestPoint = GetDestinationPoint();
                 bestField = field;
             }
 
