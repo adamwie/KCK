@@ -228,12 +228,13 @@ namespace CsClient
         private void DoBestMovement()
         {
             // Najlepszy punkt na układzie współrzędnych.
-            Point bestPoint = new Point(0, 0, -1234567890, true);
+            Point bestPoint = new Point(0, 0);
 
             // Dane najlepszego pola wg. Atlantydy
             OrientedField bestField = new OrientedField();
             bestField.height = 1234567890;
-
+            bestField.energy = -1234567890;
+            
             // Pole widziane w danym momencie.
             OrientedField field;
             
