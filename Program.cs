@@ -33,11 +33,41 @@ namespace CsClient
                 // Inicjalizacja energii
                 agent.SetEnergy(agent.worldParameters.initialEnergy);
 
+                // Tworzymy instancję naszego agenta
+                Sasha agent2 = new Sasha(Listen);
+                
+                // Próbujemy się połączyć z serwerem
+                agent2.worldParameters = agent2.Connect(ip, 6008, groupname, grouppass, worldname, imie);
+
+                // Inicjalizacja energii
+                agent2.SetEnergy(agent.worldParameters.initialEnergy);                
+                
                 // Działanie agenta
-                agent.Launch();
+                while (true)
+                {
+                    try
+                    {
+                        agent.DoBestMovement();
+                        Console.ReadKey();
+                        agent2.DoBestMovement();
+                        Console.ReadKey();                        
+                    }
+                    catch (NonCriticalException ex)
+                    {
+                        Console.WriteLine(ex.Message);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex.Message);
+                        Console.WriteLine(ex.StackTrace);
+                        Console.ReadKey();
+                        break;
+                    }
+                }
 
                 // Kończymy
                 agent.Disconnect();
+                agent2.Disconnect();
             }
             catch
             {
@@ -101,32 +131,6 @@ namespace CsClient
         * Konstruktor klasy.
         */
         public Sasha(MessageHandler handler) : base(handler) { }
-
-        /**
-         * Logika działania agenta.
-         */
-        public void Launch()
-        {
-            while (true)
-            {
-                try
-                {
-                    DoBestMovement();
-                    Console.ReadKey();
-                }
-                catch (NonCriticalException ex)
-                {
-                    Console.WriteLine(ex.Message);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine(ex.Message);
-                    Console.WriteLine(ex.StackTrace);
-                    Console.ReadKey();
-                    break;
-                }
-            }
-        }
 
         /**
         * Ustawia energię agenta.
