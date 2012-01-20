@@ -2,6 +2,7 @@ using System;
 using Data.Realm;
 using Data;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace CsClient
 {
@@ -18,39 +19,28 @@ namespace CsClient
             try
             {
                 // Tworzymy instancję naszego agenta
-                Sasha agent = new Sasha(Listen);
+                Sasha agent1 = new Sasha(Listen);
+                //Sasha agent2 = new Sasha(Listen);
 
                 // Dane do świata
                 String ip = "atlantyda.vm.wmi.amu.edu.pl";
                 String groupname = "VGrupa1";
                 String grouppass = "enkhey";
                 String worldname = "VGrupa1";
-                String imie = "Sasha";
+                Random r = new Random();
+                String imie = "Sasha" + r.Next();
 
                 // Próbujemy się połączyć z serwerem
-                agent.worldParameters = agent.Connect(ip, 6008, groupname, grouppass, worldname, imie);
+                agent1.worldParameters = agent1.Connect(ip, 6008, groupname, grouppass, worldname, imie);
 
                 // Inicjalizacja energii
-                agent.SetEnergy(agent.worldParameters.initialEnergy);
+                agent1.SetEnergy(agent1.worldParameters.initialEnergy);
 
-                // Tworzymy instancję naszego agenta
-                Sasha agent2 = new Sasha(Listen);
-                
-                // Próbujemy się połączyć z serwerem
-                agent2.worldParameters = agent2.Connect(ip, 6008, groupname, grouppass, worldname, imie);
-
-                // Inicjalizacja energii
-                agent2.SetEnergy(agent.worldParameters.initialEnergy);                
-                
-                // Działanie agenta
                 while (true)
                 {
                     try
                     {
-                        agent.DoBestMovement();
-                        Console.ReadKey();
-                        agent2.DoBestMovement();
-                        Console.ReadKey();                        
+                        agent1.DoBestMovement();
                     }
                     catch (NonCriticalException ex)
                     {
@@ -59,15 +49,13 @@ namespace CsClient
                     catch (Exception ex)
                     {
                         Console.WriteLine(ex.Message);
-                        Console.WriteLine(ex.StackTrace);
                         Console.ReadKey();
                         break;
                     }
                 }
 
                 // Kończymy
-                agent.Disconnect();
-                agent2.Disconnect();
+                agent1.Disconnect();
             }
             catch
             {
@@ -82,6 +70,7 @@ namespace CsClient
     {
         private int energy;
         public WorldParameters worldParameters;
+        private List<Point> stableEnergyPoints = new List<Point>();
 
         /**
         * Odpowiada za punkt w układzie współrzędnych
@@ -145,7 +134,15 @@ namespace CsClient
         */
         private bool PointIsVisited(Point p)
         {
-            return CoordinateSystem.Contains(p);
+            return CoordinateSystem.Any(point => point.x == p.x && point.y == p.y);
+        }
+
+        public void DisplayVisitedPoints()
+        {
+            foreach (Point pole in CoordinateSystem)
+            {
+                Console.WriteLine("(" + pole.x + ", " + pole.y + ")");
+            }
         }
 
         /**
@@ -196,6 +193,22 @@ namespace CsClient
                     }
                     break;
             }
+
+           /* switch (Dir)
+            {
+                case Direction.North:
+                    Console.WriteLine("Polnoc");
+                    break;
+                case Direction.West:
+                    Console.WriteLine("Zachod");
+                    break;
+                case Direction.East:
+                    Console.WriteLine("Wschod");
+                    break;
+                case Direction.South:
+                    Console.WriteLine("Poludnie");
+                    break;
+            }*/
         }
 
         /**
@@ -222,6 +235,24 @@ namespace CsClient
             }
         }
 
+        private static Point BestPointToMove(Dictionary<Point, int> list)
+        {
+            int maxVal = int.MinValue;
+            Point theKey = default(Point);
+
+            foreach (KeyValuePair<Point, int> pair in list)
+            {
+                int curVal = Convert.ToInt32(pair.Value);
+                if (curVal > maxVal)
+                {
+                    maxVal = curVal;
+                    theKey = pair.Key;
+                }
+            }
+
+            return theKey;
+        }
+
         /**
          * Metoda sprawia, że agent obraca się wokół siebie i sprawdza, które z 4 pól, na które może przejść
          * jest najlepsze pod względem stracenia energii.
@@ -229,94 +260,96 @@ namespace CsClient
          * Jeżeli znalezione pole to punkt, w którym agent już był, to szukamy drugiego pola. 
          * Jeżeli wszystkie odwiedzono to wybieramy najlepsze z nich.
          */
-        private void DoBestMovement()
+        public void DoBestMovement()
         {
-            // Najlepszy punkt na układzie współrzędnych.
-            Point bestPoint = new Point(0, 0);
+            Dictionary<Point, int> newFields = new Dictionary<Point, int>();
+            Dictionary<Point, int> visitedFields = new Dictionary<Point, int>();
 
-            // Dane najlepszego pola wg. Atlantydy
-            OrientedField bestField = new OrientedField();
-            bestField.height = 123456789;
-            bestField.energy = 0;
+            OrientedField field;
+            Point bPoint, cPoint;
+            int cost;
 
-            // Pole widziane w danym momencie.
-            OrientedField field = new OrientedField();
-            OrientedField[] fields = new OrientedField[4];
-            field.energy = 0;
-            field.height = -12345679;
-            
-            fields[0] = field = GetFirstSeenField();
-            if (field != null)
+            for (int i = 0; i < 4; ++i)
             {
-                bestPoint = GetDestinationPoint();
-                bestField = field;
-            }
+                System.Threading.Thread.Sleep(500);
 
-            RotateLeft();
-            System.Threading.Thread.Sleep(500);
-            fields[1] = field = GetFirstSeenField();
-            if (CompareFields(bestField, field) || PointIsVisited(bestPoint))
-            {
-                bestPoint = GetDestinationPoint();
-                bestField = field;
-            }
+                field = GetFirstSeenField();
 
-            RotateLeft();
-            System.Threading.Thread.Sleep(500);
-            fields[2] = field = GetFirstSeenField();
-            if (CompareFields(bestField, field) || PointIsVisited(bestPoint))
-            {
-                bestPoint = GetDestinationPoint();
-                bestField = field;
-            }
-
-            RotateLeft();
-            System.Threading.Thread.Sleep(500);
-            fields[3] = field = GetFirstSeenField();
-            if (CompareFields(bestField, field) || PointIsVisited(bestPoint))
-            {
-                bestPoint = GetDestinationPoint();
-                bestField = field;
-            }
-
-            if (bestField.height == 123456789)
-            {
-                foreach (OrientedField f in fields)
+                if (field != null)
                 {
-                    if (f != null)
+                    cPoint = GetDestinationPoint();
+                    cPoint.energy = field.energy;
+                    cost = getMovementCost(field.height);
+
+                    if (!PointIsVisited(cPoint))
                     {
-                        bestField = f;
-                        break;
+                        newFields.Add(cPoint, (field.energy != -1) ? field.energy - cost : 900000000);
                     }
+                    else
+                    {
+                        visitedFields.Add(cPoint, (field.energy != -1) ? field.energy - cost : 900000000);
+                    }
+                }
+               /* else
+                {
+                    RotateLeft();
+                    GoFowardToEnergy();
+                    RotateLeft();
+                    StepForward(GetFirstSeenField());
+                    RotateLeft();
+                    StepForward(GetFirstSeenField());
+                    return;
+                }*/
+
+                if (i <= 3)
+                {
+                    RotateLeft();
                 }
             }
 
-            // Obraca agenta dopóki nie znajdziemy się w odpowiednim położeniu.
-            while (GetDestinationPoint().x != bestPoint.x && GetDestinationPoint().y != bestPoint.y)
+            if (newFields.Count > 0)
             {
-                RotateLeft();
-                System.Threading.Thread.Sleep(500);
+                bPoint = BestPointToMove(newFields);
             }
+            else
+            {
+                bPoint = BestPointToMove(visitedFields);
+                Console.WriteLine("Bylo to pole ale idziemy");
+            }
+            //Console.WriteLine("Obecne to (" + GetDestinationPoint().x + ", " + GetDestinationPoint().y + ")");
+            // Obraca agenta dopóki nie znajdziemy się w odpowiednim położeniu.
+            while (GetDestinationPoint().x != bPoint.x || GetDestinationPoint().y != bPoint.y)
+            {
+                
+                RotateLeft();
+                //Console.WriteLine("Obecne to (" + GetDestinationPoint().x + ", " + GetDestinationPoint().y + ")");
+            }
+            /*
+            foreach (KeyValuePair<Point, int> pole in newFields)
+            {
+                Console.WriteLine("(" + pole.Key.x + ", " + pole.Key.y + ") - oplacalnosc: " + pole.Value + " / energia: " + pole.Key.energy);
+            }
+             */
+
+            Console.WriteLine("Najlepsze to (" + bPoint.x + ", " + bPoint.y + ")");
+
+            
+            //Console.ReadKey();
 
             // Przejdź na najlepsze pole.
-            StepForward(bestField);
+            StepForward(GetFirstSeenField());
         }
 
-        /**
-         * Zwraca true jeżeli warto zmienić stare pole na nowe pole.
-         */
-        public bool CompareFields(OrientedField oldfield, OrientedField newfield)
+        private void GoFowardToEnergy()
         {
-            if (oldfield == null)
+            OrientedField field;
+            do
             {
-                return true;
+                field = GetFirstSeenField();
+                StepForward(field);
+                System.Threading.Thread.Sleep(100);
             }
-            else if (newfield == null)
-            {
-                return false;
-            }
-
-            return ((getMovementCost(newfield.height) + newfield.energy) > (getMovementCost(oldfield.height) + oldfield.energy) || oldfield.energy < 0 || newfield.energy < 0);
+            while (field.energy != -1);
         }
 
         public void Listen(String a, String s)
@@ -329,19 +362,18 @@ namespace CsClient
         {
             if (!base.RotateLeft())
             {
-                Console.WriteLine("Obrot nie powiodl sie - brak energii");
-                return;
+                throw new Exception("Obrot nie powiodl sie - brak energii");
             }
             energy -= worldParameters.rotateCost;
             SetDirection(Direction.West);
+            //System.Threading.Thread.Sleep(500);
         }
 
         new public void RotateRight()
         {
             if (!base.RotateRight())
             {
-                Console.WriteLine("Obrot nie powiodl sie - brak energii");
-                return;
+                throw new Exception("Obrot nie powiodl sie - brak energii");
             }
 
             energy -= worldParameters.rotateCost;
@@ -352,8 +384,7 @@ namespace CsClient
         {
             if (!base.StepForward())
             {
-                Console.WriteLine("Wykonanie kroku nie powiodlo sie");
-                return;
+                throw new NonCriticalException("Wykonanie kroku nie powiodlo sie");
             }
 
             int koszt = getMovementCost(poleDocelowe.height);
@@ -362,9 +393,22 @@ namespace CsClient
                 energy -= koszt;
             }
 
-            if (poleDocelowe.energy != 0)
+            if (poleDocelowe.energy > 0)
             {
                 Recharge();
+            }
+            else if (poleDocelowe.energy == -1)
+            {
+                while (energy < worldParameters.initialEnergy)
+                {
+                    Recharge();
+                    System.Threading.Thread.Sleep(500);
+                }
+
+                if (!stableEnergyPoints.Contains(CurrentPoint))
+                {
+                    stableEnergyPoints.Add(CurrentPoint);
+                }
             }
 
             // Ustawia nowy punkt układu współrzędnych, w którym znajduje się teraz agent.
@@ -373,8 +417,8 @@ namespace CsClient
             // Dodajemy do naszej mapki
             CoordinateSystem.Add(CurrentPoint);
 
-            Console.WriteLine("Roznica wysokosci:  " + poleDocelowe.height);
-            Console.WriteLine("Koszt:  " + koszt);
+            //Console.WriteLine("Roznica wysokosci:  " + poleDocelowe.height);
+            //Console.WriteLine("Koszt:  " + koszt);
         }
 
         /**
@@ -390,7 +434,7 @@ namespace CsClient
             OrientedField[] widzianePola = base.Look();
             foreach (OrientedField pole in widzianePola)
             {
-                if (pole.x == 0 && pole.y == 1 && pole.obstacle == false)
+                if (pole.x == 0 && pole.y == 1 && pole.obstacle == false && pole.agentId == -1)
                 {
                     return pole;
                 }
