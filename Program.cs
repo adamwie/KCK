@@ -36,7 +36,7 @@ namespace CsClient
                 // Inicjalizacja energii
                 agent1.SetEnergy(agent1.worldParameters.initialEnergy);
                 agent1.debugMode = false;
-
+                Console.WriteLine(agent1.worldParameters.moveCost);
                 Console.ReadKey();
                 while (true)
                 {
@@ -479,8 +479,6 @@ namespace CsClient
 
                 for (int i = 0; i < 4; ++i)
                 {
-                    System.Threading.Thread.Sleep(100);
-
                     field = GetFirstSeenField();
 
                     if (field != null)
@@ -535,6 +533,8 @@ namespace CsClient
                 // Przejdź na najlepsze pole.
                 StepForward(GetFirstSeenField());
             }
+            Console.WriteLine("Energia: " + energy);
+            Console.ReadKey();
         }
 
         /*
@@ -586,6 +586,7 @@ namespace CsClient
                 throw new Exception("Obrot nie powiodl sie - brak energii");
             }
             energy -= worldParameters.rotateCost;
+            Console.WriteLine("pobiera");
             SetDirection(Direction.West);
 
             if (debugMode)
@@ -602,6 +603,7 @@ namespace CsClient
             }
 
             energy -= worldParameters.rotateCost;
+            Console.WriteLine("pobiera");
             SetDirection(Direction.East);
 
             if (debugMode)
@@ -627,7 +629,8 @@ namespace CsClient
 
             if (energy >= koszt)
             {
-                energy -= koszt;
+                energy -= Math.Abs(koszt);
+                Console.WriteLine("pobiera krok = " + Math.Abs(koszt));
             }
 
             if (poleDocelowe.energy > 0)
@@ -639,7 +642,6 @@ namespace CsClient
                 while (energy < worldParameters.initialEnergy)
                 {
                     Recharge();
-                    System.Threading.Thread.Sleep((debugMode) ? 400 : 200);
                 }
 
                 if (!stableEnergyPoints.Exists(x => x.x == CurrentPoint.x && x.y == CurrentPoint.y))
@@ -649,8 +651,6 @@ namespace CsClient
 
                 Console.WriteLine(stableEnergyPoints.Count);
             }
-            Console.WriteLine("Energia: " + energy);
-            System.Threading.Thread.Sleep((debugMode) ? 500 : 500);
         }
 
         /**
