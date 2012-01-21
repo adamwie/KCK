@@ -35,6 +35,7 @@ namespace CsClient
 
                 // Inicjalizacja energii
                 agent1.SetEnergy(agent1.worldParameters.initialEnergy);
+                agent1.debugMode = false;
 
                 Console.ReadKey();
                 while (true)
@@ -46,6 +47,7 @@ namespace CsClient
                     catch (NonCriticalException ex)
                     {
                         Console.WriteLine(ex.Message);
+                        Console.ReadKey();
                     }
                     catch (Exception ex)
                     {
@@ -92,7 +94,7 @@ namespace CsClient
         /**
         * Zawiera punkty układu współrzędnych, na których był już agent.
         */
-        private List<Point> CoordinateSystem = new List<Point>();
+        private List<Point> CoordinateSystem = new List<Point>() { new Point(0,0) };
 
         /**
         * Kierunek agenta na układzie współrzędnych. Domyślny kierunek do północ, czyli początek osi OY.
@@ -228,16 +230,26 @@ namespace CsClient
         {
             if (c == "y")
             {
-                if (p.y > 0 && Dir == Direction.East)
-                {
-                    RotateLeft();
-                }
-                else if (p.y < 0 && Dir == Direction.East)
+                if (p.y < 0 && Dir == Direction.East)
                 {
                     RotateRight();
                 }
+                else if (p.y > 0 && Dir == Direction.East)
+                {
+                    RotateLeft();
+                }
+                else if (p.y < 0 && Dir == Direction.North)
+                {
+                    RotateLeft();
+                    RotateLeft();
+                }
                 else if (p.y > 0 && Dir == Direction.West)
                 {
+                    RotateRight();
+                }
+                else if (p.y > 0 && Dir == Direction.South)
+                {
+                    RotateRight();
                     RotateRight();
                 }
                 else if (p.y < 0 && Dir == Direction.West)
@@ -247,21 +259,31 @@ namespace CsClient
             }
             else
             {
-                if (p.x > 0 && Dir == Direction.North)
+                if (p.x < 0 && Dir == Direction.East)
                 {
+                    RotateLeft();
+                    RotateLeft();
+                }
+                else if (p.x > 0 && Dir == Direction.West)
+                {
+                    RotateRight();
                     RotateRight();
                 }
                 else if (p.x < 0 && Dir == Direction.North)
                 {
                     RotateLeft();
                 }
-                else if (p.x > 0 && Dir == Direction.South)
+                else if (p.x > 0 && Dir == Direction.North)
                 {
-                    RotateLeft();
+                    RotateRight();
                 }
                 else if (p.x < 0 && Dir == Direction.South)
                 {
                     RotateRight();
+                }
+                else if (p.x > 0 && Dir == Direction.South)
+                {
+                    RotateLeft();
                 }
             }
         }
@@ -377,7 +399,7 @@ namespace CsClient
             foreach (KeyValuePair<Point, int> pair in list)
             {
                 int curVal = Convert.ToInt32(pair.Value);
-                if (curVal > maxVal)
+                if (curVal > maxVal && pair.Value != 900000000)
                 {
                     maxVal = curVal;
                     theKey = pair.Key;
@@ -399,9 +421,15 @@ namespace CsClient
             if (debugMode)
             {
                 Console.WriteLine("Znalezione zrodla energii: " + stableEnergyPoints.Count + ", obecna energia: " + energy + ".");
+                foreach (Point pole in stableEnergyPoints)
+                {
+                    Console.WriteLine("(" + pole.x + ", " + pole.y + ")");
+                }
+                Console.WriteLine("Jestem w punkcie (" + CurrentPoint.x + ", " + CurrentPoint.y + ").");
+                DisplayVisitedPoints();
             }
 
-            if (stableEnergyPoints.Count > 0 && energy < Convert.ToInt32((worldParameters.initialEnergy / 3)))
+            if (stableEnergyPoints.Count > 0 && energy < Convert.ToInt32((worldParameters.initialEnergy - 200)))
             {
                 if (debugMode)
                 {
@@ -411,7 +439,7 @@ namespace CsClient
                 GoToPoint(FindClosestStableEnergyPoint());
                 return;
             }
-            else if (energy < Convert.ToInt32((worldParameters.initialEnergy / 3)))
+            else if (energy < Convert.ToInt32((worldParameters.initialEnergy - 200)))
             {
                 if (debugMode)
                 {
@@ -476,20 +504,10 @@ namespace CsClient
                 while (GetDestinationPoint().x != bPoint.x || GetDestinationPoint().y != bPoint.y)
                 {
                     RotateLeft();
-
-                    if (debugMode)
-                    {
-                        Console.WriteLine("Obecnie widze punkt (" + GetDestinationPoint().x + ", " + GetDestinationPoint().y + ").");
-                    }
                 }
 
                 if (debugMode)
                 {
-                    Console.WriteLine("Punkty w zasiegu wzroku:");
-                    foreach (KeyValuePair<Point, int> pole in newFields)
-                    {
-                        Console.WriteLine("(" + pole.Key.x + ", " + pole.Key.y + ") - oplacalnosc przejscia: " + pole.Value);
-                    }
                     Console.WriteLine("Punkt wybrany jako najlepszy to (" + bPoint.x + ", " + bPoint.y + ").");
 
                     Console.ReadKey();
@@ -505,14 +523,27 @@ namespace CsClient
          */
         private void GoFowardToEnergy()
         {
-            RotateLeft();
-
             OrientedField field;
             do
             {
                 field = GetFirstSeenField();
+                if (field == null)
+                {
+                    break;
+                }
                 StepForward(field);
-                System.Threading.Thread.Sleep(100);
+            }
+            while (field.energy != -1);
+
+            RotateLeft();
+            do
+            {
+                field = GetFirstSeenField();
+                if (field == null)
+                {
+                    break;
+                }
+                StepForward(field);
             }
             while (field.energy != -1);
 
@@ -569,6 +600,12 @@ namespace CsClient
 
             int koszt = GetMovementCost(poleDocelowe.height);
 
+            // Ustawia nowy punkt układu współrzędnych, w którym znajduje się teraz agent.
+            CurrentPoint = GetDestinationPoint();
+
+            // Dodajemy do naszej mapki
+            CoordinateSystem.Add(CurrentPoint);
+
             if (energy >= koszt)
             {
                 energy -= koszt;
@@ -586,19 +623,13 @@ namespace CsClient
                     System.Threading.Thread.Sleep((debugMode) ? 400 : 200);
                 }
 
-                if (!stableEnergyPoints.Exists(x=>x.x == CurrentPoint.x && x.y == CurrentPoint.y))
+                if (!stableEnergyPoints.Exists(x => x.x == CurrentPoint.x && x.y == CurrentPoint.y))
                 {
                     stableEnergyPoints.Add(CurrentPoint);
                 }
 
                 Console.WriteLine(stableEnergyPoints.Count);
             }
-
-            // Ustawia nowy punkt układu współrzędnych, w którym znajduje się teraz agent.
-            CurrentPoint = GetDestinationPoint();
-
-            // Dodajemy do naszej mapki
-            CoordinateSystem.Add(CurrentPoint);
 
             System.Threading.Thread.Sleep((debugMode) ? 400 : 200);
         }
