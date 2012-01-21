@@ -399,6 +399,25 @@ namespace CsClient
             foreach (KeyValuePair<Point, int> pair in list)
             {
                 int curVal = Convert.ToInt32(pair.Value);
+                if (curVal > maxVal)
+                {
+                    maxVal = curVal;
+                    theKey = pair.Key;
+                }
+            }
+
+            return theKey;
+        }
+
+
+        private static Point NoStableEnergyPoint(Dictionary<Point, int> list)
+        {
+            int maxVal = int.MinValue;
+            Point theKey = default(Point);
+
+            foreach (KeyValuePair<Point, int> pair in list)
+            {
+                int curVal = Convert.ToInt32(pair.Value);
                 if (curVal > maxVal && pair.Value != 900000000)
                 {
                     maxVal = curVal;
@@ -429,7 +448,7 @@ namespace CsClient
                 DisplayVisitedPoints();
             }
 
-            if (stableEnergyPoints.Count > 0 && energy < Convert.ToInt32((worldParameters.initialEnergy - 200)))
+            if (stableEnergyPoints.Count > 0 && energy < Convert.ToInt32((worldParameters.initialEnergy/2)))
             {
                 if (debugMode)
                 {
@@ -439,7 +458,7 @@ namespace CsClient
                 GoToPoint(FindClosestStableEnergyPoint());
                 return;
             }
-            else if (energy < Convert.ToInt32((worldParameters.initialEnergy - 200)))
+            else if (energy < Convert.ToInt32((worldParameters.initialEnergy/2)))
             {
                 if (debugMode)
                 {
@@ -492,7 +511,7 @@ namespace CsClient
                 }
                 else
                 {
-                    bPoint = BestPointToMove(visitedFields);
+                    bPoint = NoStableEnergyPoint(visitedFields);
 
                     if (debugMode)
                     {
@@ -630,8 +649,8 @@ namespace CsClient
 
                 Console.WriteLine(stableEnergyPoints.Count);
             }
-
-            System.Threading.Thread.Sleep((debugMode) ? 400 : 200);
+            Console.WriteLine("Energia: " + energy);
+            System.Threading.Thread.Sleep((debugMode) ? 500 : 500);
         }
 
         /**
@@ -661,7 +680,14 @@ namespace CsClient
         new private void Recharge()
         {
             int added = base.Recharge();
-            energy += added;
+            if (energy + added > worldParameters.initialEnergy)
+            {
+                energy = worldParameters.initialEnergy;
+            }
+            else
+            {
+                energy += added;
+            }
             Console.WriteLine("Otrzymano " + added + " energii");
         }
     }
