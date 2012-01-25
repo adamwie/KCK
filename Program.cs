@@ -10,6 +10,10 @@ namespace CsClient
     public class Program
     {
         static AgentAPI agent;
+
+        /*
+         * Nazwa agenta.
+         */
         static string agentName;
 
         static void Main(string[] args)
@@ -32,9 +36,13 @@ namespace CsClient
 
                 // Inicjalizacja energii
                 energy = worldParameters.initialEnergy;
+
+                // Uruchamiamy agenta bez zbędnych komunikatów
                 debugMode = false;
-                Console.WriteLine(worldParameters.moveCost);
+
+                Console.WriteLine("Wcisnij dowolny klawisz, aby uruchomic agenta.");
                 Console.ReadKey();
+
                 while (true)
                 {
                     try
@@ -109,12 +117,14 @@ namespace CsClient
             public int x;
             public int y;
             public int energy;
+            public int visitedTimes;
 
-            public Point(int x, int y, int energy = 0)
+            public Point(int x, int y, int energy = 0, int visitedTimes = 0)
             {
                 this.x = x;
                 this.y = y;
                 this.energy = energy;
+                this.visitedTimes = visitedTimes;
             }
         }
 
@@ -130,6 +140,9 @@ namespace CsClient
             East
         }
 
+        /*
+         * Nasłuchuje okolice agenta i odpowiada w razie usłyszanego głosu.
+         */
         private static void Listen(String a, String s)
         {
             if (a == "superktos") Console.WriteLine("~Słysze własne słowa~");
@@ -378,7 +391,8 @@ namespace CsClient
         }
 
         /*
-         * Ze wskazanej listy punktów, zwraca najlepsze (strata energii na przejście + pobór energii z pola).
+         * Ze wskazanej listy punktów, zwraca najlepsze (strata energii na przejście + pobór energii z pola). 
+         * Uwzględnia stałe źródła energii.
          */
         private static Point BestPointToMove(Dictionary<Point, int> list)
         {
@@ -387,29 +401,9 @@ namespace CsClient
 
             foreach (KeyValuePair<Point, int> pair in list)
             {
-                int curVal = Convert.ToInt32(pair.Value);
-                if (curVal > maxVal)
+                if (pair.Value > maxVal)
                 {
-                    maxVal = curVal;
-                    theKey = pair.Key;
-                }
-            }
-
-            return theKey;
-        }
-
-
-        private static Point NoStableEnergyPoint(Dictionary<Point, int> list)
-        {
-            int maxVal = int.MinValue;
-            Point theKey = default(Point);
-
-            foreach (KeyValuePair<Point, int> pair in list)
-            {
-                int curVal = Convert.ToInt32(pair.Value);
-                if (curVal > maxVal && pair.Value != 900000000)
-                {
-                    maxVal = curVal;
+                    maxVal = pair.Value;
                     theKey = pair.Key;
                 }
             }
@@ -418,11 +412,29 @@ namespace CsClient
         }
 
         /*
-         * Metoda sprawia, że agent obraca się wokół siebie i sprawdza, które z 4 pól, na które może przejść
-         * jest najlepsze pod względem stracenia energii i zyskania nowej.
-         * Po znalezieniu najlepszego pola, przechodzi na nie.
-         * Jeżeli znalezione pole to punkt, w którym agent już był, to szukamy drugiego pola. 
-         * Jeżeli wszystkie odwiedzono to wybieramy najlepsze z odwiedzonych.
+         * Z podanej listy, zwraca najlepszy punkt, który nie jest stałym źródłem energii.
+         */
+        private static Point NoStableEnergyPoint(Dictionary<Point, int> list)
+        {
+            int maxVal = int.MinValue;
+            int visitedTimes = int.MaxValue;
+            Point theKey = default(Point);
+
+            foreach (KeyValuePair<Point, int> pair in list)
+            {
+                if (pair.Value > maxVal && pair.Key.visitedTimes < visitedTimes && pair.Value != 900000000)
+                {
+                    maxVal = pair.Value;
+                    visitedTimes = pair.Key.visitedTimes;
+                    theKey = pair.Key;
+                }
+            }
+
+            return theKey;
+        }
+
+        /*
+         * Wykonuje najlepszy w rozumieniu agenta ruch na mapie.
          */
         public static void DoBestMovement()
         {
@@ -437,6 +449,9 @@ namespace CsClient
                 DisplayVisitedPoints();
             }
 
+            /*
+             * Jeżeli mamy w pamięci stałe źródło energii i obecna energia jest mniejsza niż połowa początkowej to idziemy do znanego źródła energii.
+             */
             if (stableEnergyPoints.Count > 0 && energy < Convert.ToInt32((worldParameters.initialEnergy / 2)))
             {
                 if (debugMode)
@@ -447,6 +462,9 @@ namespace CsClient
                 GoToPoint(FindClosestStableEnergyPoint());
                 return;
             }
+            /*
+             * Jeżeli nie znamy żadnego stałe źródła energii to szukamy takiej energii na ślepo (zobacz opis metody).
+             */
             else if (energy < Convert.ToInt32((worldParameters.initialEnergy / 2)))
             {
                 if (debugMode)
@@ -457,6 +475,13 @@ namespace CsClient
                 GoFowardToEnergy();
                 return;
             }
+            /*
+             * Agent obraca się wokół siebie i sprawdza, które z 4 pól, na które może przejść
+             * jest najlepsze pod względem stracenia energii i zyskania nowej.
+             * Po znalezieniu najlepszego pola, przechodzi na nie.
+             * Jeżeli znalezione pole to punkt, w którym agent już był, to szukamy drugiego pola. 
+             * Jeżeli wszystkie odwiedzono to wybieramy najlepsze z odwiedzonych.
+             */
             else
             {
                 Dictionary<Point, int> newFields = new Dictionary<Point, int>();
@@ -492,6 +517,10 @@ namespace CsClient
                     }
                 }
 
+                /*
+                 * Jeżeli jest jakiś punkt, w którym jeszcze nie byliśmy to przechodzimy na nie.
+                 * Jeżeli nie ma to wybieramy najlepsze z już odwiedzonych.
+                 */
                 if (newFields.Count > 0)
                 {
                     bPoint = BestPointToMove(newFields);
@@ -531,7 +560,8 @@ namespace CsClient
         }
 
         /*
-         * Szaleńcza próba znalezienia stałego źródła energii.
+         * Szaleńcza próba znalezienia stałego źródła energii, tzn. agent idzie prosto aż do napotkania przeszkody, następnie idzie w lewo.
+         * Zakładamy tutaj, że na mapie nie ma dodatkowych przeszkód, poza jej granicami!
          */
         private static void GoFowardToEnergy()
         {
@@ -566,6 +596,9 @@ namespace CsClient
             StepForward(GetFirstSeenField());
         }
 
+        /*
+         * Obraca agenta w lewo i zmienia położenie agenta na układzie współrzędnych.
+         */
         public static void RotateLeft()
         {
             if (!agent.RotateLeft())
@@ -585,6 +618,9 @@ namespace CsClient
             }
         }
 
+        /*
+         * Obraca agenta w prawo i zmienia położenie agenta na układzie współrzędnych.
+         */
         public static void RotateRight()
         {
             if (!agent.RotateRight())
@@ -605,6 +641,9 @@ namespace CsClient
             }
         }
 
+        /*
+         * Wykonuje krok do przodu i zaopatruje agenta w energię jeżeli takowa jest dostępna na polu.
+         */
         public static void StepForward(OrientedField poleDocelowe)
         {
             if (!agent.StepForward())
@@ -616,6 +655,7 @@ namespace CsClient
 
             // Ustawia nowy punkt układu współrzędnych, w którym znajduje się teraz agent.
             CurrentPoint = GetDestinationPoint();
+            CurrentPoint.visitedTimes++;
 
             // Dodajemy do naszej mapki
             CoordinateSystem.Add(CurrentPoint);
@@ -659,6 +699,7 @@ namespace CsClient
 
         /*
          * Zwraca dane pola (nie punktu), na które może przejść w tym momencie agent.
+         * Zwraca null jeżeli dane pole jest przeszkodą, lub stoi na nim jakiś inny agent.
          */
         private static OrientedField GetFirstSeenField()
         {
@@ -674,10 +715,17 @@ namespace CsClient
                 {
                     return pole;
                 }
+                else if (pole.x == 0 && pole.y == 1 && (pole.obstacle == true || pole.agentId > 0))
+                {
+                    return null;
+                }
             }
             return null;
         }
 
+        /*
+         * Ładuje energię agenta jeżeli jest taka możliwość.
+         */
         private static void Recharge()
         {
             int added = agent.Recharge();
@@ -692,11 +740,17 @@ namespace CsClient
             Console.WriteLine("Otrzymano " + added + " energii");
         }
 
+        /*
+         * Wysyła sygnał do otoczenia.
+         */
         private static void Say()
         {
             agent.Speak("podaj twoje imie", 1);
         }
 
+        /*
+         * Udziela odpowiedzi na usłyszany głos.
+         */
         private static void Reply(string s)
         {
             Dictionary<string, string> questiondb = new Dictionary<string, string>();
