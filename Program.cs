@@ -60,7 +60,7 @@ namespace CsClient
                         Console.ReadKey();
                         break;
                     }
-                    System.Threading.Thread.Sleep(2000);
+                    //System.Threading.Thread.Sleep(2000);
                 }
 
                 // Kończymy
@@ -88,6 +88,8 @@ namespace CsClient
         * Parametry świata.
         */
         public static WorldParameters worldParameters;
+
+        public static int count = 0;
 
         /*
         * Zawiera współrzędne niewyczerpalnych źródeł energii,
@@ -297,8 +299,8 @@ namespace CsClient
         }
 
         /*
-        * Znajduje najbliższe stałe źródło energii, w założeniu, że taki punkt już znaleźliśmy.
-        */
+       * Znajduje najbliższe stałe źródło energii, w założeniu, że taki punkt już znaleźliśmy.
+       */
         private static Point FindClosestStableEnergyPoint()
         {
             if (stableEnergyPoints.Count == 0)
@@ -307,12 +309,15 @@ namespace CsClient
             }
 
             Point energyPoint = CurrentPoint;
-            double distance = int.MaxValue;
+            double newDistance, distance = int.MaxValue;
 
             foreach (Point p in stableEnergyPoints)
             {
-                if (distance > GetPointDistance(p))
+                newDistance = GetPointDistance(p);
+
+                if (distance > newDistance)
                 {
+                    distance = newDistance;
                     energyPoint = p;
                 }
             }
@@ -324,7 +329,7 @@ namespace CsClient
         */
         private static double GetPointDistance(Point p)
         {
-            return Math.Abs(CurrentPoint.y - p.y) + Math.Abs(CurrentPoint.y - p.y);
+            return Math.Abs(CurrentPoint.y - p.y) + Math.Abs(CurrentPoint.x - p.x);
         }
 
         /*
@@ -352,6 +357,12 @@ namespace CsClient
                 field = GetFirstSeenField();
                 if (field == null)
                 {
+                    RotateLeft();
+                    field = GetFirstSeenField();
+                    if (field != null)
+                    {
+                        StepForward(field);
+                    }
                     return;
                 }
                 StepForward(field);
@@ -366,6 +377,12 @@ namespace CsClient
                 field = GetFirstSeenField();
                 if (field == null)
                 {
+                    RotateLeft();
+                    field = GetFirstSeenField();
+                    if (field != null)
+                    {
+                        StepForward(field);
+                    }
                     return;
                 }
                 StepForward(field);
@@ -460,6 +477,11 @@ namespace CsClient
             */
             if (stableEnergyPoints.Count > 0 && energy < Convert.ToInt32((worldParameters.initialEnergy / 2)))
             {
+                Point p = FindClosestStableEnergyPoint();
+                if (GetPointDistance(p) >= 10 && stableEnergyPoints.Count != 4)
+                {
+                    GoFowardToEnergy();
+                }
                 if (debugMode)
                 {
                     Console.WriteLine("Ide do punktu ze stala energia.");
@@ -482,87 +504,151 @@ namespace CsClient
                 return;
             }
             /*
-            * Agent obraca się wokół siebie i sprawdza, które z 4 pól, na które może przejść
-            * jest najlepsze pod względem stracenia energii i zyskania nowej.
-            * Po znalezieniu najlepszego pola, przechodzi na nie.
-            * Jeżeli znalezione pole to punkt, w którym agent już był, to szukamy drugiego pola.
-            * Jeżeli wszystkie odwiedzono to wybieramy najlepsze z odwiedzonych.
+            *Agent sprawdza czy w pobliżu znajduje sie pole z energia, jezeli tak idzie do niego(po pierwsze przezyc).
+            *Jezeli nie znajdzie energi, stawia krok do przodu, chyba ze pole przednim bylo juz odwiedzone.
+            *W takim wypadku obraca sie w lewo i powtarza cala czynnosc.
             */
             else
             {
-                Dictionary<Point, int> newFields = new Dictionary<Point, int>();
-                Dictionary<Point, int> visitedFields = new Dictionary<Point, int>();
+                //Dictionary<Point, int> newFields = new Dictionary<Point, int>();
+                //Dictionary<Point, int> visitedFields = new Dictionary<Point, int>();
 
-                OrientedField field;
-                Point bPoint, cPoint;
-                int cost;
+                //OrientedField field;
+                //Point bPoint, cPoint;
+                //int cost;
 
-                for (int i = 0; i < 4; ++i)
-                {
-                    field = GetFirstSeenField();
+                //for (int i = 0; i < 4; ++i)
+                //{
+                //    field = GetFirstSeenField();
 
-                    if (field != null)
-                    {
-                        cPoint = GetDestinationPoint();
-                        cPoint.energy = field.energy;
-                        cost = GetMovementCost(field.height);
+                //    if (field != null)
+                //    {
+                //        cPoint = GetDestinationPoint();
+                //        cPoint.energy = field.energy;
+                //        cost = GetMovementCost(field.height);
 
-                        if (!PointIsVisited(cPoint))
-                        {
-                            newFields.Add(cPoint, (field.energy != -1) ? field.energy - cost : 900000000);
-                        }
-                        else
-                        {
-                            visitedFields.Add(cPoint, (field.energy != -1) ? field.energy - cost : 900000000);
-                        }
-                    }
+                //        if (!PointIsVisited(cPoint))
+                //        {
+                //            newFields.Add(cPoint, (field.energy != -1) ? field.energy - cost : 900000000);
+                //        }
+                //        else
+                //        {
+                //            visitedFields.Add(cPoint, (field.energy != -1) ? field.energy - cost : 900000000);
+                //        }
+                //    }
 
-                    if (i <= 3)
-                    {
-                        RotateLeft();
-                    }
-                }
+                //    if (i <= 3)
+                //    {
+                //        RotateLeft();
+                //    }
+                //}
 
                 /*
                 * Jeżeli jest jakiś punkt, w którym jeszcze nie byliśmy to przechodzimy na nie.
                 * Jeżeli nie ma to wybieramy najlepsze z już odwiedzonych.
                 */
-                if (newFields.Count > 0)
+                
+                OrientedField energyField = isEnergy();
+                if (energy > Convert.ToInt32((worldParameters.initialEnergy * 0.6)))
                 {
-                    bPoint = BestPointToMove(newFields);
+                    if (!(energyField == null))
+                    {
+                        Point p = GetPoint(energyField);
+                        if (PointIsVisited(p))
+                        {
+                            energyField = null;
+                        }
+                    }
+                }
+                if (!(energyField == null))
+                {
+                    Console.WriteLine("Znalazlem energie!");
+                    Point p = GetPoint(energyField);
+                    Console.WriteLine(energyField.x);
+                    Console.WriteLine(energyField.y);
+                    Console.WriteLine(energyField.energy);
+                    Console.WriteLine(energyField.height);
+                    Console.WriteLine(energyField.obstacle);
+                    Console.WriteLine(energyField.IsStepable());
+                    //GoToPoint(p);
+                    if (!GoToField(energyField))
+                    {
+                        RotateLeft();
+                        return;
+                    }
+                    Recharge();
+                    return;
                 }
                 else
                 {
-                    bPoint = NoStableEnergyPoint(visitedFields);
-
-                    if (debugMode)
+                    Console.WriteLine("Niestety brak energii!");
+                    OrientedField pole = GetFirstSeenField();
+                    if (pole == null)
                     {
-                        Console.WriteLine("Wokolo sa tylko odwiedzone juz pola.");
+                        RotateLeft();
+                        Console.WriteLine("Nie mam pola do ruchu! Obracam sie w lewo i od nowa!");
+                        return;
+                    }
+                    else
+                    {
+                        Point p = GetPoint(pole);
+                        if (!PointIsVisited(p))
+                        {
+                            count = 0;
+                            Console.WriteLine("Mam pole!");
+                            StepForward(pole);
+                        }
+                        else
+                        {
+                            
+                            if (count == 3)
+                            {
+                                StepForward(pole);
+                                //count = 0;
+                                count++;
+                                return;
+                            }
+                            if (count == 7)
+                            {
+                                Random r = new Random();
+                                StepForward(pole);
+                                int b = r.Next(1, 8);
+                                for (int i = 0; i <= b; i++)
+                                {
+                                    pole = GetFirstSeenField();
+                                    if (pole != null)
+                                    {
+                                        StepForward(pole);
+                                    }
+                                    if (b % 3 == 0)
+                                    {
+                                        RotateLeft();
+                                    }
+                                    if (b % 2 == 0)
+                                    {
+                                        RotateRight();
+                                    }
+                                }
+                                count = 0;
+                                return;
+                            }
+                            pole = GetFirstNotVisitedField();
+                            if (pole != null)
+                            {
+                                Console.WriteLine("Znalazlem nie odwiedzone pole!");
+                                GoToField(pole);
+                                count = 0;
+                                return;
+                            }
+                            RotateLeft();
+                            count++;
+                            return;
+                        }
                     }
                 }
-
-                // Obracaj dopóki nie znajdziemy się w odpowiednim położeniu.
-                while (GetDestinationPoint().x != bPoint.x || GetDestinationPoint().y != bPoint.y)
-                {
-                    RotateLeft();
-                }
-
-                if (debugMode)
-                {
-                    Console.WriteLine("Punkt wybrany jako najlepszy to (" + bPoint.x + ", " + bPoint.y + ").");
-
-                    Console.ReadKey();
-                }
-
-                // Przejdź na najlepsze pole.
-                StepForward(GetFirstSeenField());
             }
 
-            if (debugMode)
-            {
-                Console.WriteLine("Energia: " + energy);
-                Console.ReadKey();
-            }
+              
         }
 
         /*
@@ -583,8 +669,6 @@ namespace CsClient
                 StepForward(field);
             }
             while (field.energy != -1);
-            Console.WriteLine("Pole ma energie!");
-            Console.ReadKey();
             RotateLeft();
             do
             {
@@ -597,11 +681,11 @@ namespace CsClient
             }
             while (field.energy != -1);
 
-            RotateLeft();
-            StepForward(GetFirstSeenField());
+            //RotateLeft();
+            //StepForward(GetFirstSeenField());
 
-            RotateLeft();
-            StepForward(GetFirstSeenField());
+            //RotateLeft();
+            //StepForward(GetFirstSeenField());
         }
 
         /*
@@ -668,14 +752,12 @@ namespace CsClient
             // Dodajemy do naszej mapki
             CoordinateSystem.Add(CurrentPoint);
 
-            if (energy >= koszt)
-            {
                 energy -= Math.Abs(koszt);
                 if (debugMode)
                 {
                     Console.WriteLine("pobiera energie za krok (" + Math.Abs(koszt) + ")");
                 }
-            }
+            
 
             if (poleDocelowe.energy > 0)
             {
@@ -683,8 +765,9 @@ namespace CsClient
             }
             else if (poleDocelowe.energy == -1)
             {
-                while (energy < worldParameters.initialEnergy)
+                while (energy < worldParameters.initialEnergy - 20)
                 {
+                    Console.WriteLine(energy);
                     Recharge();
                 }
 
@@ -702,6 +785,7 @@ namespace CsClient
         */
         private static int GetMovementCost(int height)
         {
+            //return Convert.ToInt32(Math.Ceiling(Convert.ToDouble(worldParameters.moveCost * height) / 100));
             return Convert.ToInt32(Math.Ceiling(Convert.ToDouble(worldParameters.moveCost * (1 + (height - CurrentField.height) / 100))));
         }
 
@@ -714,24 +798,30 @@ namespace CsClient
             OrientedField[] widzianePola = agent.Look();
             foreach (OrientedField pole in widzianePola)
             {
+                Point p = GetPoint(pole);
+                Boolean isVisited = PointIsVisited(p); 
+                
                 if (pole.x == 0 && pole.y == 0)
                     CurrentField = pole;
 
-
                 if (pole.agentId > 0)
                 {
-                    Say();
+                    //Say();
+                    Console.WriteLine("Agent");
+                    continue;
                 }
 
-                if (pole.x == 0 && pole.y == 1 && pole.obstacle == false && pole.agentId == -1)
+                if (pole.x == 0 && pole.y == 1 && pole.obstacle == false)
                 {
                     return pole;
                 }
                 else if (pole.x == 0 && pole.y == 1 && (pole.obstacle == true || pole.agentId > 0))
                 {
+                    Console.WriteLine("przeszkoda!");
                     return null;
                 }
             }
+            Console.WriteLine("Nie ma nic!");
             return null;
         }
 
@@ -783,6 +873,175 @@ namespace CsClient
             {
                 agent.Speak(reply, 1);
             }
+        }
+
+        
+        /*
+         * Metoda sprawdza, czy w polu widzenia agenta znajduje się jakieś pole z energią.
+         * Jeżeli tak, zwraca to pole.
+         * Jeżeli nie, zwraca null.
+         */
+        protected static OrientedField isEnergy()
+        {
+            OrientedField[] polaEnergii = agent.Look();
+            OrientedField pole = new OrientedField();
+            int energia = 0;
+
+            foreach (OrientedField field in polaEnergii)
+            {
+                if (field.x == 0 && field.y == 0)
+                {
+                    CurrentField = field;
+                    continue;
+                }
+
+
+                if (!field.IsStepable() || field.agentId > 0)
+                {
+                    continue;
+                }
+
+                if (field.energy == -1)
+                {
+                    Point p = GetPoint(field);
+                    if (!PointIsVisited(p))
+                    {
+                        return field;
+                    }
+                }
+
+                if (field.energy > energia)
+                {
+                    energia = pole.energy;
+                    pole = field;
+                }
+            }
+            if (energia > 0)
+            {
+                return pole;
+            }
+            return null;
+        }
+
+        /*
+         * Metoda pobiera OreintedField, i zwraca Point.
+         * Dzięki temu można nanieść pole na stworząną przez agenta mape.
+         */ 
+        private static Point GetPoint(OrientedField field)
+        {
+            switch (Dir)
+            {
+                case Direction.North:
+                    return new Point(CurrentPoint.x + field.x, CurrentPoint.y + field.y);
+
+                case Direction.South:
+                    return new Point(CurrentPoint.x - field.x, CurrentPoint.y - field.y);
+
+                case Direction.West:
+                    return new Point(CurrentPoint.x - field.y, CurrentPoint.y + field.x);
+
+                case Direction.East:
+                    return new Point(CurrentPoint.x + field.y, CurrentPoint.y - field.x);
+
+                default:
+                    return new Point(0, 0);
+            }
+        }
+
+        private static Boolean GoToField(OrientedField field)
+        {
+            for (int i = 0; i < field.y; i++)
+            {
+                OrientedField pole = GetFirstSeenField();
+                if(pole == null)
+                {
+                    return false;
+                }
+                StepForward(pole);
+            }
+            
+            if(field.x > 0)
+            {
+                RotateRight();
+                for (int i = 0; i < field.x; i++)
+                {
+                    OrientedField pole = GetFirstSeenField();
+                    if(pole == null)
+                    {
+                        return false;
+                    }
+                    StepForward(pole);
+                }
+            }
+            else if (field.x < 0)
+            {
+                RotateLeft();
+                for (int i = 0; i < (-field.x); i++)
+                {
+                    OrientedField pole = GetFirstSeenField();
+                    if (pole == null)
+                    {
+                        return false;
+                    }
+                    StepForward(pole);
+                }
+            }
+            else if (field.x == 0)
+            {
+                return true;
+            }
+            return true;
+            
+        }
+
+        private static OrientedField GetFirstNotVisitedField()
+        {
+            OrientedField fieldy = new OrientedField();
+            OrientedField field = new OrientedField();
+            OrientedField[] widzianePola = agent.Look();
+
+            field = null;
+            fieldy = null;
+
+            foreach (OrientedField pole in widzianePola)
+            {
+                if (pole.x == 0 && pole.y == 0)
+                {
+                    continue;
+                }
+
+                if (pole.obstacle || pole.IsStepable() || pole.agentId > 0)
+                {
+                    continue;
+                }
+
+                Point p = GetPoint(pole);
+
+                if (!PointIsVisited(p) && field.y == 1 && field.x == 0)
+                {
+                    return pole;
+                }
+
+                if (!PointIsVisited(p) && field.y == 1)
+                {
+                    fieldy = pole;
+                }
+
+                if (!PointIsVisited(p))
+                {
+                    field = pole;
+                }
+
+            }
+            if (fieldy != null)
+            {
+                return fieldy;
+            }
+            if (field != null)
+            {
+                return field;
+            }
+            return null;
         }
     }
 }
